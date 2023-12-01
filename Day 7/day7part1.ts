@@ -1,4 +1,6 @@
+import { ChildProcess } from 'child_process';
 import * as fs from 'fs';
+import { updateLanguageServiceSourceFile } from 'typescript';
 
 
 const filaName = 'data.txt';
@@ -11,30 +13,30 @@ export interface Component {
     calculateSize(): number;
 
     isFile(): boolean;
+
+    name: string;
+    addFile(file: Component): void;
+    removeFile(file: Component): void;
+    containsDirectory(name: string): boolean;
 }
 
 export class Directory implements Component {
     public children: Component[] = [];
-    private name: string = '';
+    public name: string = '';
 
     constructor(name: string) {
         this.name = name;
     }
 
 
-    public addFile(...files: Component[]): void {
-        for (const file of files) {
-            this.children.push(file);
-        }
-       
+    public addFile(file: Component): void {
+        this.children.push(file);
+        console.log(`Added file: ${file.name} to ${this.name}, this is the current list of children: ${this.children.forEach(value => console.log(value.name))}`)
     }
 
 
     public isFile(): boolean {
         return false;
-    }
-    public getName(): string {
-        return this.name;
     }
 
     public removeFile(file: Component): void {
@@ -50,6 +52,18 @@ export class Directory implements Component {
         return totalSize
     }
 
+    public containsDirectory(name: string): boolean {
+        if (name === this.name) {
+            return true;
+        }
+        for (const child in this.children) {
+            if (this.name === name) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 
 }
 
@@ -59,7 +73,7 @@ export class Directory implements Component {
  * The lowest level leaf component and where all the work gets done. 
  */
 export class File implements Component{
-    private fileName?: string = '';
+    public name: string = '';
     public children: Component[] = [];
     private fileSize: number;
 
@@ -72,6 +86,15 @@ export class File implements Component{
 
     public isFile(): boolean {
         return true;
+    } 
+    public addFile(): void {
+        
+    }
+    public removeFile(file: Component): void {
+        
+    }
+    public containsDirectory(name: string): boolean {
+        return false;
     }
 }
 
@@ -83,10 +106,11 @@ const lines = fileSring.split('\n');
 // if its a file, we create a new file and add that to the current directory
 // 
 let topLevelDirectory = new Directory('/');
-let currentDirectory: Directory = topLevelDirectory;
+let currentDirectory: Directory  = topLevelDirectory;
 
-let directoryStack = [currentDirectory];
+let directoryStack: Directory[] = [currentDirectory];
 
+let totalSum = 0
 
 for (const line of lines) {
     let lineArr = line.split(' ');
@@ -101,43 +125,66 @@ for (const line of lines) {
             else {
                 // Add the directory to the stack and make this the current directory
                 // Find a way to find the directory name that matches the one passed in
-                currentDirectory = directoryStack.find(directory => directory.getName() === lineArr[2])!;
+                if (!currentDirectory.containsDirectory(lineArr[2])) {
+                    console.log("Current directory does not contain " + lineArr[2])
+                    currentDirectory.addFile(new Directory(lineArr[2]));
+                }
                 directoryStack.push(currentDirectory);
+                currentDirectory = currentDirectory.children.filter(directory => !directory.isFile).find(directory => directory.name === lineArr[2])!;
+                console.log(`Changing into directory: ${lineArr[2]}, and current Directory is ${currentDirectory}`);
             }
-        }
+        }   
         else if (lineArr[1] === 'ls') {
-            console.log('listing directories');
+            console.log("Listing directories")
         }
     }
     else if (lineArr[0].match(/\d/)) {
         // Make a new file and add it to the current directory
         const file = new File(parseInt(lineArr[0]));
         currentDirectory.addFile(file);
+        console.log("Adding a file, and currentDirectory is: " +  currentDirectory.name);
+        
     }
     else if (lineArr[0] === 'dir') {
         // add the directory to the current directory
-        const directoryAdd = new Directory(lineArr[1]);
-        directoryStack.push(directoryAdd);
-        currentDirectory.addFile(directoryAdd);   
+        console.log("Adding directory " + lineArr[1] + " and current directory is " +  currentDirectory.name)
+        currentDirectory.addFile(new Directory(lineArr[1]));   
+        console.log(`current directories children: ${currentDirectory.children.forEach(value => console.log(value.name))}`)
     }
 }
 
-let totalSum = 0
+function recurseThroughTree(toplvlDirectory: Component, sum: number): number {
+    const queue = [toplvlDirectory];
+
+    const visited = new Set<Component>();
 
 
+    while (queue.length > 0) {
+        const currentDirectory = queue.shift();
 
-function recurseThroughTree(toplvlDirectory: Component): any {
-    if (toplvlDirectory.isFile()) {
-        totalSum += toplvlDirectory.calculateSize();
-        return
-    }
-    for (const directory of toplvlDirectory.children) {
-
-        if (directory.calculateSize() <= 100000) {
-            return recurseThroughTree(directory);
+        if (!visited.has(currentDirectory!)) {
+            visited.add(currentDirectory!);
         }
+
+        
+
+        for (const child of currentDirectory!.children) {
+
+            if (!child.isFile()) {
+                queue.push(child);
+                if (child.calculateSize() <= 100000) {
+                    sum += child.calculateSize();
+                }
+            }
+            
+        }
+
     }
 
+    return sum;
 }
+    
 
-console.log(totalSum);
+
+console.log(recurseThroughTree(topLevelDirectory, 0));
+
