@@ -1,22 +1,17 @@
 
 
-def count_winning(line):
-    line = line.split(":")
-    line = line[1].strip().split("|")
+def count_winning_scorecards(line):
 
-    winning_nums = line[0].split(" ")
-    guessed_nums = line[1].split(" ")
-    count = -1
-    for num in guessed_nums:
-        if num in winning_nums and num != '':
-            print(num)
-            count += 1
+    _, number_string = line.split(":")
 
-    if count == -1:
+    winning_nums, guessed_nums = [num.split()
+                                  for num in number_string.strip().split("|")]
+    count = sum(1 for num in guessed_nums if num in winning_nums)
+
+    if count == 0:
         return 0
     else:
-
-        return 2 ** count
+        return 2 ** (count - 1)
 
 
 with open("input.txt") as file:
@@ -24,8 +19,8 @@ with open("input.txt") as file:
     for line in file:
         lines.append(line.strip())
 
-sum = 0
+sum_count = 0
 for line in lines:
-    sum += count_winning(line)
+    sum_count += count_winning_scorecards(line)
 
-print(sum)
+print(sum_count)
